@@ -387,6 +387,7 @@ export default function Coaches() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
+    console.log('koooo')
     fetchCoaches();
 
     socket.on("coachLocationUpdated", (liveLocation) => {

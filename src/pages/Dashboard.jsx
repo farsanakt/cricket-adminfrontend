@@ -88,6 +88,8 @@ function FormBar({ value }) {
   );
 }
 
+
+
 function StatCard({ label, value, icon: Icon, color, sub, onClick }) {
   return (
     <div onClick={onClick}
