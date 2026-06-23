@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 const socket = io(
-  "http://168.144.149.133:5000/api"
+  import.meta.env.VITE_SOCKET_URL
 );
 
 export default socket;
