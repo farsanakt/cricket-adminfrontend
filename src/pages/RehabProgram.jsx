@@ -4,22 +4,23 @@ import {
   ChevronRight, ChevronDown, ChevronUp,
   AlertTriangle, CheckCircle2, Activity,
   Download, Edit2, ArrowLeft, Heart,
-  Dumbbell, RotateCcw, Play, Image as ImgIcon,
+  Dumbbell, RotateCcw, Play, Image as ImgIcon, Trash2, Layers,
 } from "lucide-react";
 
 import { PageBanner } from "../theme";
 
-// Import your backend function
-import { exitingExercises } from "../api/authApi"; // Update this path
-
-// ─── DEMO DATA ────────────────────────────────────────────────────────────────
-const DEMO_PLAYERS = [
-  { id:1, name:"Arjun Menon",    age:23, injury:"—",              team:"Kerala CA",    status:"Available", category:"Senior"   },
-  { id:2, name:"Rahul Das",      age:25, injury:"Shoulder Strain",team:"Kerala CA",    status:"Injured",   category:"Senior"   },
-  { id:3, name:"Vivek Pillai",   age:22, injury:"—",              team:"Kerala CA",    status:"Available", category:"Under-23" },
-  { id:4, name:"Sneha Krishnan", age:22, injury:"—",              team:"Kerala Women", status:"Available", category:"Senior"   },
-  { id:5, name:"Priya Menon",    age:19, injury:"—",              team:"Kerala Women", status:"Available", category:"Under-23" },
-];
+// Import your backend functions
+import {
+  exitingExercises,
+  fetchALLPlayers,
+  getAllInjuryData,
+  createRehabProgram,
+  getRehabProgramsByPlayer,
+  updateRehabProgram,
+  deleteRehabProgram,
+  addRehabSession,
+  deleteRehabSession,
+} from "../api/authApi"; // Update this path
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -42,7 +43,7 @@ const card = (x = {}) => ({
   border:"1px solid #e8e8e8", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", ...x,
 });
 
-const initials = n => n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+const initials = n => (n||"").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 
 const Badge = ({ label, bg, color, border }) => (
   <span style={{ fontSize:"11px", fontWeight:"700", padding:"2px 9px", borderRadius:"20px", backgroundColor:bg, color, border:`1px solid ${border}` }}>
@@ -50,11 +51,11 @@ const Badge = ({ label, bg, color, border }) => (
   </span>
 );
 
-const OBtn = ({ children, onClick, style={} }) => (
-  <button onClick={onClick}
-    style={{ display:"inline-flex", alignItems:"center", gap:"7px", padding:"9px 20px", backgroundColor:"#2f9be0", color:"#fff", border:"none", borderRadius:"8px", fontSize:"13px", fontWeight:"700", cursor:"pointer", boxShadow:"0 2px 8px rgba(47, 155, 224,0.28)", ...style }}
-    onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#2380c2")}
-    onMouseLeave={e=>(e.currentTarget.style.backgroundColor=style.backgroundColor||"#2f9be0")}
+const OBtn = ({ children, onClick, style={}, disabled=false }) => (
+  <button onClick={onClick} disabled={disabled}
+    style={{ display:"inline-flex", alignItems:"center", gap:"7px", padding:"9px 20px", backgroundColor: disabled ? "#bcd9ee" : "#2f9be0", color:"#fff", border:"none", borderRadius:"8px", fontSize:"13px", fontWeight:"700", cursor: disabled ? "not-allowed" : "pointer", boxShadow:"0 2px 8px rgba(47, 155, 224,0.28)", ...style }}
+    onMouseEnter={e=>{ if(!disabled) e.currentTarget.style.backgroundColor="#2380c2"; }}
+    onMouseLeave={e=>{ if(!disabled) e.currentTarget.style.backgroundColor=style.backgroundColor||"#2f9be0"; }}
   >{children}</button>
 );
 
@@ -111,7 +112,6 @@ function WorkoutLibrary({ added, onAdd, onRemove, onCardClick, selectedId, exerc
   const activeCount = Object.values(fil).filter(v=>v!=="All").length;
   const isAdded = id => added.some(a=>a._id===id || a.id===id);
 
-  // Extract unique categories and joints from backend data
   const CATS = ["All", ...new Set(exercises.map(e => e.category))];
   const JOINTS = ["All", ...new Set(exercises.map(e => e.jointArea))];
 
@@ -195,7 +195,6 @@ function WorkoutLibrary({ added, onAdd, onRemove, onCardClick, selectedId, exerc
                 onMouseEnter={e=>{ if(!active) e.currentTarget.style.borderColor="#cfe6f7"; }}
                 onMouseLeave={e=>{ if(!active) e.currentTarget.style.borderColor="#e8e8e8"; }}
               >
-                {/* Thumbnail area with GIF */}
                 <div style={{ height:"76px", background:"linear-gradient(135deg,#f5f5f5,#e0e0e0)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"26px", userSelect:"none", overflow:"hidden" }}>
                   {ex.gifUrl ? (
                     <img src={ex.gifUrl} alt={ex.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
@@ -203,7 +202,6 @@ function WorkoutLibrary({ added, onAdd, onRemove, onCardClick, selectedId, exerc
                     <span>📋</span>
                   )}
                 </div>
-                {/* Info */}
                 <div style={{ padding:"9px 10px" }}>
                   <div style={{ fontSize:"12px", fontWeight:"700", color:"#222", lineHeight:"1.3", marginBottom:"7px" }}>{ex.name}</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -275,16 +273,13 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ backgroundColor:"#fff", borderRadius:"14px", width:"100%", maxWidth:"700px", maxHeight:"87vh", overflowY:"auto", boxShadow:"0 24px 48px rgba(0,0,0,0.18)" }}>
 
-        {/* Header */}
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"22px 24px 0" }}>
           <h2 style={{ fontSize:"18px", fontWeight:"800", color:"#222", paddingRight:"32px", lineHeight:"1.3", margin:0 }}>{exercise.name}</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"#aaa", fontSize:"20px", lineHeight:1, flexShrink:0 }}>×</button>
         </div>
 
         <div style={{ display:"flex", gap:"0", padding:"22px 24px" }}>
-          {/* Left: gif + description */}
           <div style={{ flex:1, paddingRight:"22px", borderRight:"1px solid #f0f0f0" }}>
-            {/* Tab */}
             <div style={{ display:"flex", gap:"8px", marginBottom:"14px", flexWrap:"wrap" }}>
               {[{k:"gif",icon:<Play size={11}/>,label:"GIF"},{k:"images",icon:<ImgIcon size={11}/>,label:"Images"}].map(t=>(
                 <button key={t.k} onClick={()=>setTab(t.k)}
@@ -298,10 +293,8 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
               ><Heart size={11}/> Favourite</button>
             </div>
 
-            {/* Description */}
             <p style={{ fontSize:"13px", color:"#555", lineHeight:"1.65", marginBottom:"16px" }}>{exercise.description || "No description available"}</p>
 
-            {/* GIF Display */}
             <div style={{ borderRadius:"10px", background:"linear-gradient(135deg,#f0f0f0,#e0e0e0)", height:"170px", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:"16px", overflow:"hidden" }}>
               {exercise.gifUrl ? (
                 <img src={exercise.gifUrl} alt={exercise.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
@@ -313,7 +306,6 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
               )}
             </div>
 
-            {/* Tags */}
             <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
               {[exercise.category, exercise.jointArea, exercise.difficulty, exercise.position].filter(Boolean).map(t=>(
                 <Badge key={t} label={t} bg="#e8f3fb" color="#2f9be0" border="#cfe6f7"/>
@@ -321,14 +313,12 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Right: edit controls */}
           <div style={{ width:"210px", flexShrink:0, paddingLeft:"22px" }}>
             <h3 style={{ fontSize:"14px", fontWeight:"700", color:"#222", marginBottom:"18px", marginTop:0 }}>Edit exercise</h3>
             <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
               <SpinInput label="Sets" val={sets} set={setSets} min={1} max={10}/>
               <SpinInput label="Reps" val={reps} set={setReps} min={1} max={50}/>
 
-              {/* Rest */}
               <div>
                 <div style={{ fontSize:"12px", fontWeight:"700", color:"#888", marginBottom:"8px" }}>Rest duration</div>
                 <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
@@ -349,7 +339,6 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
                 </div>
               </div>
 
-              {/* Notes */}
               <div>
                 <div style={{ fontSize:"12px", fontWeight:"700", color:"#888", marginBottom:"6px" }}>Notes (optional)</div>
                 <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3}
@@ -358,7 +347,6 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
               </div>
             </div>
 
-            {/* Actions */}
             <div style={{ display:"flex", gap:"8px", marginTop:"18px" }}>
               <OBtn onClick={()=>onSave({...exercise,sets,reps,rest,notes})} style={{ flex:1, justifyContent:"center", padding:"9px 12px" }}>
                 <Save size={13}/> Save
@@ -373,7 +361,7 @@ function ExerciseModal({ exercise, existing, onSave, onClose }) {
 }
 
 // ─── ASSIGN MODAL ─────────────────────────────────────────────────────────────
-function AssignModal({ player, programName, onConfirm, onClose }) {
+function AssignModal({ player, programName, onConfirm, onClose, submitting }) {
   const todayStr = new Date().toISOString().split("T")[0];
   const [startDate, setStart]  = useState(todayStr);
   const [endDate,   setEnd]    = useState("");
@@ -402,7 +390,6 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ backgroundColor:"#fff", borderRadius:"14px", width:"100%", maxWidth:"440px", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 48px rgba(0,0,0,0.18)" }}>
 
-        {/* Header */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 22px", borderBottom:"1px solid #f0f0f0" }}>
           <div>
             <div style={{ fontSize:"10px", fontWeight:"700", color:"#aaa", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"3px" }}>Assign to {player.name}</div>
@@ -413,7 +400,6 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
 
         <div style={{ padding:"18px 22px", display:"flex", flexDirection:"column", gap:"20px" }}>
 
-          {/* Start date */}
           <div>
             <SectionHead title="Start Date"/>
             <div style={{ fontSize:"13px", color:"#888", marginBottom:"10px" }}>When do you want this program to start?</div>
@@ -430,14 +416,12 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
             </div>
           </div>
 
-          {/* End date */}
           <div>
             <SectionHead title="End Date"/>
             <input type="date" value={endDate} onChange={e=>setEnd(e.target.value)}
               style={{ ...inputStyle, maxWidth:"180px" }} onFocus={fo} onBlur={fb}/>
           </div>
 
-          {/* Frequency */}
           <div>
             <SectionHead title="Program Frequency"/>
             <div style={{ fontSize:"13px", color:"#888", marginBottom:"10px" }}>How often should they perform this program?</div>
@@ -459,7 +443,6 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
             )}
           </div>
 
-          {/* Program options */}
           <div>
             <SectionHead title="Program Options"/>
             <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
@@ -482,10 +465,9 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
             </div>
           </div>
 
-          {/* Assign CTA */}
-          <OBtn onClick={()=>onConfirm({startDate,endDate,freq,days,pain,rpe,notif,recording})}
+          <OBtn disabled={submitting} onClick={()=>onConfirm({startDate,endDate,freq,days,pain,rpe,notif,recording})}
             style={{ width:"100%", justifyContent:"center", padding:"13px" }}>
-            <CheckCircle2 size={15}/> Assign to Profile
+            <CheckCircle2 size={15}/> {submitting ? "Assigning…" : "Assign to Profile"}
           </OBtn>
         </div>
       </div>
@@ -493,21 +475,54 @@ function AssignModal({ player, programName, onConfirm, onClose }) {
   );
 }
 
-// ─── CREATE PROGRAM MODAL ────────────────────────────���────────────────────────
-function CreateProgramModal({ player, onClose, onCreated, exercises, loading, error }) {
+// ─── CREATE / EDIT PROGRAM MODAL (multi-session) ──────────────────────────────
+function CreateProgramModal({ player, onClose, onCreated, exercises, loading, error, existingProgram, submitting }) {
   const [tab,        setTab]       = useState("workout");
-  const [progName,   setProgName]  = useState("");
-  const [progNote,   setProgNote]  = useState("");
-  const [addedExercises, setAddedExercises] = useState([]);
+  const [progName,   setProgName]  = useState(existingProgram?.name || "");
+  const [progNote,   setProgNote]  = useState(existingProgram?.notes || "");
+  const [goals,      setGoals]     = useState(existingProgram?.goals || "");
+
+  // sessions: [{ _id?, name, notes, exercises: [...] }]
+  const makeSession = (n=1) => ({ _id:undefined, name:`Session ${n}`, notes:"", exercises:[] });
+  const [sessions, setSessions] = useState(
+    existingProgram?.sessions?.length
+      ? existingProgram.sessions.map(s=>({ ...s, exercises:[...(s.exercises||[])] }))
+      : [makeSession(1)]
+  );
+  const [activeSession, setActiveSession] = useState(0);
+
   const [selEx,      setSelEx]     = useState(null);
   const [exModal,    setExModal]   = useState(false);
-  const [goals,      setGoals]     = useState("");
   const [assignOpen, setAssignOpen]= useState(false);
 
-  const handleAdd    = ex  => { if(!addedExercises.some(e=>e._id===ex._id || e.id===ex.id)) setAddedExercises(p=>[...p,{...ex,sets:3,reps:10,rest:60,notes:""}]); };
-  const handleRemove = id  => setAddedExercises(p=>p.filter(e=>e._id!==id && e.id!==id));
+  const currentExercises = sessions[activeSession]?.exercises || [];
+
+  const updateActiveExercises = (updater) => {
+    setSessions(prev => prev.map((s,i)=> i===activeSession ? { ...s, exercises: updater(s.exercises) } : s));
+  };
+
+  const handleAdd    = ex  => updateActiveExercises(list => list.some(e=>(e._id||e.id)===(ex._id||ex.id)) ? list : [...list,{...ex,sets:3,reps:10,rest:60,notes:""}]);
+  const handleRemove = id  => updateActiveExercises(list => list.filter(e=>e._id!==id && e.id!==id));
   const handleClick  = ex  => { setSelEx(ex); setExModal(true); };
-  const handleSave   = upd => { setAddedExercises(p=>p.some(e=>(e._id || e.id)===(upd._id || upd.id))?p.map(e=>(e._id || e.id)===(upd._id || upd.id)?upd:e):[...p,upd]); setExModal(false); };
+  const handleSave   = upd => {
+    updateActiveExercises(list => list.some(e=>(e._id||e.id)===(upd._id||upd.id))
+      ? list.map(e=>(e._id||e.id)===(upd._id||upd.id)?upd:e)
+      : [...list,upd]);
+    setExModal(false);
+  };
+
+  const addSession = () => {
+    setSessions(prev => [...prev, makeSession(prev.length+1)]);
+    setActiveSession(sessions.length);
+  };
+  const removeSession = (idx) => {
+    if (sessions.length<=1) return;
+    setSessions(prev => prev.filter((_,i)=>i!==idx));
+    setActiveSession(a => a===idx ? 0 : (a>idx ? a-1 : a));
+  };
+  const renameSession = (idx, name) => setSessions(prev => prev.map((s,i)=>i===idx?{...s,name}:s));
+
+  const totalExercises = sessions.reduce((sum,s)=>sum+(s.exercises?.length||0),0);
 
   const TABS = [
     { key:"weekly",  label:"⊙ Weekly Goals"    },
@@ -524,16 +539,17 @@ function CreateProgramModal({ player, onClose, onCreated, exercises, loading, er
 
   return (
     <div style={{ position:"fixed", inset:0, backgroundColor:"rgba(0,0,0,0.4)", zIndex:900, display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}>
-      <div style={{ backgroundColor:"#fff", borderRadius:"14px", width:"100%", maxWidth:"940px", maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 24px 48px rgba(0,0,0,0.18)", overflow:"hidden" }}>
+      <div style={{ backgroundColor:"#fff", borderRadius:"14px", width:"100%", maxWidth:"980px", maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 24px 48px rgba(0,0,0,0.18)", overflow:"hidden" }}>
 
-        {/* Header */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 24px", borderBottom:"1px solid #f0f0f0", flexShrink:0 }}>
           <div>
-            <div style={{ fontSize:"10px", fontWeight:"700", color:"#aaa", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"3px" }}>Creating program for</div>
+            <div style={{ fontSize:"10px", fontWeight:"700", color:"#aaa", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:"3px" }}>
+              {existingProgram ? "Editing program for" : "Creating program for"}
+            </div>
             <h2 style={{ fontSize:"18px", fontWeight:"800", color:"#222", margin:0 }}>{player.name}</h2>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-            <OBtn onClick={()=>addedExercises.length?setAssignOpen(true):alert("Add at least one exercise first")}
+            <OBtn onClick={()=>totalExercises?setAssignOpen(true):alert("Add at least one exercise first")}
               style={{ padding:"8px 16px", fontSize:"13px" }}>
               <CheckCircle2 size={13}/> Assign to Profile
             </OBtn>
@@ -541,14 +557,12 @@ function CreateProgramModal({ player, onClose, onCreated, exercises, loading, er
           </div>
         </div>
 
-        {/* Tabs */}
         <div style={{ display:"flex", borderBottom:"1px solid #f0f0f0", paddingLeft:"8px", flexShrink:0 }}>
           {TABS.map(t=>(
             <button key={t.key} onClick={()=>setTab(t.key)} style={tabBtnStyle(tab===t.key)}>{t.label}</button>
           ))}
         </div>
 
-        {/* Body */}
         <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
           {tab==="weekly" && (
             <div style={{ padding:"20px 24px" }}>
@@ -569,8 +583,33 @@ function CreateProgramModal({ player, onClose, onCreated, exercises, loading, er
                   placeholder="Program notes (e.g. Light mobility only)"
                   style={inputStyle} onFocus={fo} onBlur={fb}/>
               </div>
+
+              {/* Session selector — allows multiple workout sessions per program */}
+              <div style={{ display:"flex", alignItems:"center", gap:"8px", padding:"10px 16px", borderBottom:"1px solid #f0f0f0", flexWrap:"wrap", flexShrink:0, backgroundColor:"#fafafa" }}>
+                <Layers size={13} style={{ color:"#888" }}/>
+                {sessions.map((s,idx)=>(
+                  <div key={idx} style={{ display:"flex", alignItems:"center", gap:"4px", padding:"5px 6px 5px 12px", borderRadius:"20px", border:`1.5px solid ${activeSession===idx?"#2f9be0":"#e0e0e0"}`, backgroundColor:activeSession===idx?"#e8f3fb":"#fff" }}>
+                    <input value={s.name} onChange={e=>renameSession(idx,e.target.value)} onClick={()=>setActiveSession(idx)}
+                      style={{ border:"none", outline:"none", background:"transparent", fontSize:"12px", fontWeight:"700", color:activeSession===idx?"#2f9be0":"#666", width:`${Math.max(70,s.name.length*7)}px`, cursor:"text" }}/>
+                    <Badge label={String(s.exercises.length)} bg="#fff" color="#888" border="#e0e0e0"/>
+                    {sessions.length>1 && (
+                      <button onClick={()=>removeSession(idx)}
+                        style={{ background:"none", border:"none", cursor:"pointer", color:"#ccc", display:"flex", padding:"2px" }}
+                        onMouseEnter={e=>(e.currentTarget.style.color="#cc3333")}
+                        onMouseLeave={e=>(e.currentTarget.style.color="#ccc")}
+                      ><X size={11}/></button>
+                    )}
+                  </div>
+                ))}
+                <button onClick={addSession}
+                  style={{ display:"flex", alignItems:"center", gap:"5px", padding:"6px 12px", borderRadius:"20px", border:"1.5px dashed #cfe6f7", backgroundColor:"#fff", color:"#2f9be0", fontSize:"12px", fontWeight:"700", cursor:"pointer" }}
+                  onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#e8f3fb")}
+                  onMouseLeave={e=>(e.currentTarget.style.backgroundColor="#fff")}
+                ><Plus size={11}/> Add Session</button>
+              </div>
+
               <div style={{ flex:1, overflow:"hidden" }}>
-                <WorkoutLibrary added={addedExercises} onAdd={handleAdd} onRemove={handleRemove} onCardClick={handleClick} selectedId={selEx?._id || selEx?.id} exercises={exercises} loading={loading} error={error}/>
+                <WorkoutLibrary added={currentExercises} onAdd={handleAdd} onRemove={handleRemove} onCardClick={handleClick} selectedId={selEx?._id || selEx?.id} exercises={exercises} loading={loading} error={error}/>
               </div>
             </>
           )}
@@ -582,42 +621,49 @@ function CreateProgramModal({ player, onClose, onCreated, exercises, loading, er
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", padding:"14px 24px", borderTop:"1px solid #f0f0f0", flexShrink:0 }}>
           <GhostBtn onClick={onClose}><ArrowLeft size={13}/> Cancel</GhostBtn>
-          <OBtn onClick={()=>addedExercises.length?setAssignOpen(true):alert("Add at least one exercise to the workout")}>
-            <Save size={13}/> Save Session
+          <OBtn onClick={()=>totalExercises?setAssignOpen(true):alert("Add at least one exercise to a session")}>
+            <Save size={13}/> Save Sessions
           </OBtn>
         </div>
       </div>
 
       {exModal && selEx && (
-        <ExerciseModal exercise={selEx} existing={addedExercises.find(e=>(e._id || e.id)===(selEx._id || selEx.id))} onSave={handleSave} onClose={()=>setExModal(false)}/>
+        <ExerciseModal exercise={selEx} existing={currentExercises.find(e=>(e._id || e.id)===(selEx._id || selEx.id))} onSave={handleSave} onClose={()=>setExModal(false)}/>
       )}
       {assignOpen && (
-        <AssignModal player={player} programName={progName}
-          onConfirm={assignment=>{ onCreated({name:progName||"Rehab Program",notes:progNote,exercises:addedExercises,goals},assignment); setAssignOpen(false); }}
+        <AssignModal player={player} programName={progName} submitting={submitting}
+          onConfirm={assignment=>{
+            onCreated({
+              name: progName || "Rehab Program",
+              notes: progNote,
+              goals,
+              sessions: sessions.map(s=>({ name:s.name, notes:s.notes, exercises:s.exercises })),
+            }, assignment);
+          }}
           onClose={()=>setAssignOpen(false)}/>
       )}
     </div>
   );
 }
 
-// ─── PROGRAM REPORT ───────────────────────────────────────────────────────────
+// ─── PROGRAM REPORT (handles multiple sessions) ───────────────────────────────
 function ProgramReport({ player, program, assignment, onBack }) {
   const printRef = useRef();
+  const sessions = program.sessions && program.sessions.length ? program.sessions : [{ name:"Session 1", exercises: program.exercises || [] }];
 
   const handleDownload = () => {
-    const daysStr = assignment.freq==="specific" ? assignment.days.join(", ") : assignment.freq==="daily" ? "Every day" : "Alternate days";
     const win = window.open("","_blank");
     win.document.write(`<!DOCTYPE html><html><head><title>${program.name}</title>
     <style>*{box-sizing:border-box}body{font-family:sans-serif;padding:36px;color:#222;background:#fff;margin:0}
     h1{font-size:22px;font-weight:800;margin:0 0 4px}.sub{font-size:13px;color:#888;margin:0 0 22px}
+    h3{font-size:15px;font-weight:800;margin:24px 0 10px}
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
     .meta{padding:12px 14px;border:1px solid #e8e8e8;border-radius:8px}
     .meta label{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px}
     .meta span{font-size:13px;font-weight:700}
-    table{width:100%;border-collapse:collapse;font-size:13px}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px}
     th{background:#fafafa;padding:10px 12px;text-align:left;font-weight:700;border-bottom:2px solid #e8e8e8;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.4px}
     td{padding:10px 12px;border-bottom:1px solid #f5f5f5}
     .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;background:#e8f3fb;color:#2f9be0;border:1px solid #cfe6f7}
@@ -628,10 +674,10 @@ function ProgramReport({ player, program, assignment, onBack }) {
   };
 
   const daysStr = assignment.freq==="specific" ? assignment.days.join(", ") : assignment.freq==="daily" ? "Every day" : "Alternate days";
+  const totalExercises = sessions.reduce((sum,s)=>sum+(s.exercises?.length||0),0);
 
   return (
     <div style={{ padding:"28px", maxWidth:"960px", margin:"0 auto" }}>
-      {/* Toolbar */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"22px", flexWrap:"wrap", gap:"12px" }}>
         <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
           <GhostBtn onClick={onBack}><ArrowLeft size={13}/> Back</GhostBtn>
@@ -646,14 +692,12 @@ function ProgramReport({ player, program, assignment, onBack }) {
         </div>
       </div>
 
-      {/* Printable content */}
       <div ref={printRef}>
         <h1 style={{ fontFamily:"'Barlow Condensed', sans-serif", fontSize:"22px", fontWeight:"800", margin:"0 0 4px" }}>{program.name}</h1>
         <p style={{ fontSize:"13px", color:"#888", margin:"0 0 22px" }}>
           Assigned to: <strong>{player.name}</strong> · {player.injury!=="—"?player.injury:player.team}
         </p>
 
-        {/* Meta grid */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:"12px", marginBottom:"22px" }}>
           {[
             ["Start Date",      assignment.startDate],
@@ -663,8 +707,8 @@ function ProgramReport({ player, program, assignment, onBack }) {
             ["Pain Reporting",  assignment.pain?"Yes":"No"],
             ["RPE Reporting",   assignment.rpe?"Yes (0–10)":"No"],
             ["Notifications",   assignment.notif?"Yes":"No"],
-            ["Total Exercises", program.exercises.length],
-            ["Team",            player.team],
+            ["Total Sessions",  sessions.length],
+            ["Total Exercises", totalExercises],
           ].map(([lbl,val])=>(
             <div key={lbl} style={{ padding:"12px 14px", border:"1px solid #e8e8e8", borderRadius:"8px", backgroundColor:"#fff" }}>
               <div style={{ fontSize:"10px", color:"#aaa", textTransform:"uppercase", letterSpacing:"0.5px", display:"block", marginBottom:"3px" }}>{lbl}</div>
@@ -673,40 +717,50 @@ function ProgramReport({ player, program, assignment, onBack }) {
           ))}
         </div>
 
-        {/* Exercise table with GIFs */}
-        <div style={{ borderRadius:"10px", border:"1px solid #e8e8e8", overflow:"hidden" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
-            <thead>
-              <tr style={{ backgroundColor:"#fafafa" }}>
-                {["#","GIF","Exercise","Category","Sets","Reps","Rest","Notes"].map(h=>(
-                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontWeight:"700", borderBottom:"2px solid #e8e8e8", fontSize:"11px", color:"#888", textTransform:"uppercase", letterSpacing:"0.4px" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {program.exercises.map((ex,i)=>(
-                <tr key={ex._id || ex.id} style={{ backgroundColor:i%2===0?"#fff":"#fafafa" }}>
-                  <td style={{ padding:"10px 12px", color:"#aaa", fontSize:"11px" }}>{i+1}</td>
-                  <td style={{ padding:"10px 12px" }}>
-                    {ex.gifUrl ? (
-                      <img src={ex.gifUrl} alt={ex.name} style={{ width:"40px", height:"40px", borderRadius:"6px", objectFit:"cover" }}/>
-                    ) : (
-                      <div style={{ width:"40px", height:"40px", backgroundColor:"#f0f0f0", borderRadius:"6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"10px", color:"#ccc" }}>—</div>
-                    )}
-                  </td>
-                  <td style={{ padding:"10px 12px", fontWeight:"700", color:"#222" }}>{ex.name}</td>
-                  <td style={{ padding:"10px 12px" }}>
-                    <Badge label={ex.category} bg="#e8f3fb" color="#2f9be0" border="#cfe6f7"/>
-                  </td>
-                  <td style={{ padding:"10px 12px", fontWeight:"800", color:"#2f9be0" }}>{ex.sets}</td>
-                  <td style={{ padding:"10px 12px", fontWeight:"700", color:"#222" }}>{ex.reps}</td>
-                  <td style={{ padding:"10px 12px", color:"#666" }}>{ex.rest}s</td>
-                  <td style={{ padding:"10px 12px", color:"#aaa", fontSize:"12px" }}>{ex.notes||"—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {sessions.map((session, si)=>(
+          <div key={session._id || si} style={{ marginBottom:"22px" }}>
+            <h3 style={{ fontSize:"15px", fontWeight:"800", color:"#222", margin:"0 0 10px" }}>
+              {session.name || `Session ${si+1}`}
+              {session.notes && <span style={{ fontWeight:"500", color:"#aaa", fontSize:"12px" }}> — {session.notes}</span>}
+            </h3>
+            <div style={{ borderRadius:"10px", border:"1px solid #e8e8e8", overflow:"hidden" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
+                <thead>
+                  <tr style={{ backgroundColor:"#fafafa" }}>
+                    {["#","GIF","Exercise","Category","Sets","Reps","Rest","Notes"].map(h=>(
+                      <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontWeight:"700", borderBottom:"2px solid #e8e8e8", fontSize:"11px", color:"#888", textTransform:"uppercase", letterSpacing:"0.4px" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(session.exercises||[]).map((ex,i)=>(
+                    <tr key={ex._id || ex.id || i} style={{ backgroundColor:i%2===0?"#fff":"#fafafa" }}>
+                      <td style={{ padding:"10px 12px", color:"#aaa", fontSize:"11px" }}>{i+1}</td>
+                      <td style={{ padding:"10px 12px" }}>
+                        {ex.gifUrl ? (
+                          <img src={ex.gifUrl} alt={ex.name} style={{ width:"40px", height:"40px", borderRadius:"6px", objectFit:"cover" }}/>
+                        ) : (
+                          <div style={{ width:"40px", height:"40px", backgroundColor:"#f0f0f0", borderRadius:"6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"10px", color:"#ccc" }}>—</div>
+                        )}
+                      </td>
+                      <td style={{ padding:"10px 12px", fontWeight:"700", color:"#222" }}>{ex.name}</td>
+                      <td style={{ padding:"10px 12px" }}>
+                        <Badge label={ex.category} bg="#e8f3fb" color="#2f9be0" border="#cfe6f7"/>
+                      </td>
+                      <td style={{ padding:"10px 12px", fontWeight:"800", color:"#2f9be0" }}>{ex.sets}</td>
+                      <td style={{ padding:"10px 12px", fontWeight:"700", color:"#222" }}>{ex.reps}</td>
+                      <td style={{ padding:"10px 12px", color:"#666" }}>{ex.rest}s</td>
+                      <td style={{ padding:"10px 12px", color:"#aaa", fontSize:"12px" }}>{ex.notes||"—"}</td>
+                    </tr>
+                  ))}
+                  {(session.exercises||[]).length===0 && (
+                    <tr><td colSpan={8} style={{ padding:"14px 12px", color:"#bbb", textAlign:"center" }}>No exercises in this session</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
 
         <p style={{ marginTop:"18px", fontSize:"11px", color:"#aaa" }}>
           Generated by Palaestra Performance &amp; Rehab · {new Date().toLocaleDateString()}
@@ -717,26 +771,66 @@ function ProgramReport({ player, program, assignment, onBack }) {
 }
 
 // ─── MAIN EXPORT ──────────────────────────────────────────────────────────────
-export default function RehabProgram({ players: propPlayers }) {
-  const players = propPlayers || DEMO_PLAYERS;
+export default function RehabProgram() {
+  const [players,        setPlayers]        = useState([]);
+  const [playersLoading,  setPlayersLoading] = useState(true);
+  const [playersError,    setPlayersError]   = useState("");
 
   const [expanded,     setExpanded]     = useState(null);
   const [creating,     setCreating]     = useState(false);
+  const [editingProgram, setEditingProgram] = useState(null); // existing program being edited, or null for new
   const [activePlayer, setActivePlayer] = useState(null);
-  const [programs,     setPrograms]     = useState({});
+  const [programs,     setPrograms]     = useState({});  // { [playerId]: programDoc[] }
+  const [programsLoading, setProgramsLoading] = useState({}); // { [playerId]: bool }
   const [viewing,      setViewing]      = useState(null);
   const [exercises,    setExercises]    = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
+  const [submitting,   setSubmitting]   = useState(false);
 
-  // Fetch exercises on component mount
+  // ── Load players + injuries, merge to derive availability status ──
+  useEffect(() => {
+    const loadPlayersAndInjuries = async () => {
+      setPlayersLoading(true);
+      setPlayersError("");
+      try {
+        const [playersRes, injuryRes] = await Promise.all([fetchALLPlayers(), getAllInjuryData()]);
+        const allPlayers  = playersRes?.data || [];
+        const allInjuries = injuryRes?.data || [];
+
+        const merged = allPlayers.map(p => {
+          const activeInjury = allInjuries.find(
+            inj => String(inj.player) === String(p._id) && inj.status === "active"
+          );
+          return {
+            id: p._id,
+            _id: p._id,
+            name: p.name,
+            email: p.email,
+            team: p.team || "—",
+            category: p.category || "Senior",
+            status: activeInjury ? "Injured" : "Available",
+            injury: activeInjury ? activeInjury.description : "—",
+          };
+        });
+        setPlayers(merged);
+      } catch (err) {
+        console.error(err);
+        setPlayersError("Failed to load players. Please try again.");
+      } finally {
+        setPlayersLoading(false);
+      }
+    };
+    loadPlayersAndInjuries();
+  }, []);
+
+  // ── Load exercise library ──
   useEffect(() => {
     const fetchExercisesData = async () => {
       setLoading(true);
       setError("");
       try {
         const res = await exitingExercises();
-        console.log(res.data, "Fetched Data");
         setExercises(res.data.workouts || []);
       } catch (err) {
         setError("Failed to load exercises. Please try again.");
@@ -745,16 +839,61 @@ export default function RehabProgram({ players: propPlayers }) {
         setLoading(false);
       }
     };
-
     fetchExercisesData();
   }, []);
 
-  const handleCreated = (program, assignment) => {
-    setPrograms(prev=>({...prev,[activePlayer.id]:[...(prev[activePlayer.id]||[]),{program,assignment}]}));
-    setCreating(false);
+  const loadProgramsForPlayer = async (playerId) => {
+    setProgramsLoading(prev => ({ ...prev, [playerId]: true }));
+    try {
+      const res = await getRehabProgramsByPlayer(playerId);
+      console.log(res,'this is the ehb')
+      setPrograms(prev => ({ ...prev, [playerId]: res|| [] }));
+    } catch (err) {
+      console.error(err);
+      setPrograms(prev => ({ ...prev, [playerId]: [] }));
+    } finally {
+      setProgramsLoading(prev => ({ ...prev, [playerId]: false }));
+    }
   };
 
-  const openCreate = (player, e) => { e.stopPropagation(); setActivePlayer(player); setCreating(true); };
+  const toggleExpand = (playerId) => {
+    if (expanded === playerId) { setExpanded(null); return; }
+    setExpanded(playerId);
+    if (!programs[playerId]) loadProgramsForPlayer(playerId);
+  };
+
+  const handleCreated = async (program, assignment) => {
+    setSubmitting(true);
+    try {
+      if (editingProgram) {
+        await updateRehabProgram(editingProgram._id, { ...program, assignment, player: activePlayer.id });
+      } else {
+        await createRehabProgram({ ...program, assignment, player: activePlayer.id });
+      }
+      await loadProgramsForPlayer(activePlayer.id);
+      setCreating(false);
+      setEditingProgram(null);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save the rehab program. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProgram = async (playerId, programId) => {
+    if (!window.confirm("Delete this rehab program? This cannot be undone.")) return;
+    try {
+      await deleteRehabProgram(programId);
+      await loadProgramsForPlayer(playerId);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete the program. Please try again.");
+    }
+  };
+
+  const openCreate = (player, e) => { e.stopPropagation(); setActivePlayer(player); setEditingProgram(null); setCreating(true); };
+  const openEdit   = (player, program, e) => { e.stopPropagation(); setActivePlayer(player); setEditingProgram(program); setCreating(true); };
 
   // ── Report view ──
   if (viewing) return (
@@ -767,21 +906,28 @@ export default function RehabProgram({ players: propPlayers }) {
     <div style={{ minHeight:"100vh", backgroundColor:"#f3f4f6" }}>
       <div style={{ maxWidth:"1200px", margin:"0 auto", padding:"28px" }}>
 
-        {/* Page heading */}
         <PageBanner title="Rehab Program" sub="Assign & track rehab plans" />
 
-        {/* Session card */}
         <div style={{ backgroundColor:"#fff", borderRadius:"10px", border:"1px solid #e8e8e8", boxShadow:"0 1px 4px rgba(0,0,0,0.05)", overflow:"hidden" }}>
 
-          {/* Card header */}
           <div style={{ display:"flex", alignItems:"center", gap:"8px", padding:"16px 20px", borderBottom:"1px solid #f0f0f0" }}>
             <Activity size={15} style={{ color:"#2f9be0" }}/>
             <span style={{ fontSize:"14px", fontWeight:"700", color:"#333" }}>Session Action — Weekly Goals &amp; Programs</span>
           </div>
 
-          {/* Player rows */}
-          {players.map((player,idx) => {
+          {playersLoading && (
+            <div style={{ padding:"40px 20px", textAlign:"center", color:"#aaa", fontSize:"13px" }}>Loading players…</div>
+          )}
+          {!playersLoading && playersError && (
+            <div style={{ padding:"40px 20px", textAlign:"center", color:"#cc3333", fontSize:"13px" }}>{playersError}</div>
+          )}
+          {!playersLoading && !playersError && players.length===0 && (
+            <div style={{ padding:"40px 20px", textAlign:"center", color:"#aaa", fontSize:"13px" }}>No players found.</div>
+          )}
+
+          {!playersLoading && !playersError && players.map((player,idx) => {
             const pp        = programs[player.id]||[];
+            const ppLoading = !!programsLoading[player.id];
             const isOpen    = expanded===player.id;
             const stColor   = STATUS_COLORS[player.status]||STATUS_COLORS.Available;
             const catColor  = CAT_COLORS[player.category]||CAT_COLORS.Senior;
@@ -789,14 +935,12 @@ export default function RehabProgram({ players: propPlayers }) {
 
             return (
               <div key={player.id} style={{ borderBottom:isLast?"none":"1px solid #f0f0f0" }}>
-                {/* Player row header */}
-                <div onClick={()=>setExpanded(isOpen?null:player.id)}
+                <div onClick={()=>toggleExpand(player.id)}
                   style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", cursor:"pointer", backgroundColor:isOpen?"#e8f3fb":"#fff", transition:"background 0.15s", borderLeft:isOpen?"3px solid #2f9be0":"3px solid transparent" }}
                   onMouseEnter={e=>{ if(!isOpen) e.currentTarget.style.backgroundColor="#fdf8f4"; }}
                   onMouseLeave={e=>{ if(!isOpen) e.currentTarget.style.backgroundColor="#fff"; }}
                 >
                   <div style={{ display:"flex", alignItems:"center", gap:"14px" }}>
-                    {/* Avatar */}
                     <div style={{ width:"40px", height:"40px", borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"12px", fontWeight:"800", backgroundColor:isOpen?"#2f9be0":(player.status==="Injured"?"#fff0f0":"#e8f3fb"), color:isOpen?"#fff":(player.status==="Injured"?"#cc3333":"#2f9be0"), border:`1.5px solid ${isOpen?"#2f9be0":(player.status==="Injured"?"#ffc5c5":"#cfe6f7")}` }}>
                       {initials(player.name)}
                     </div>
@@ -824,38 +968,52 @@ export default function RehabProgram({ players: propPlayers }) {
                   </div>
                 </div>
 
-                {/* Expanded content */}
                 {isOpen && (
                   <div style={{ backgroundColor:"#fffbf7", borderTop:"1px solid #ffe0b2", padding:"0 20px 18px 20px" }}>
                     <div style={{ paddingLeft:"54px", paddingTop:"14px" }}>
-                      {pp.length===0 && (
+                      {ppLoading && (
+                        <p style={{ fontSize:"12px", color:"#aaa", marginBottom:"12px" }}>Loading programs…</p>
+                      )}
+                      {!ppLoading && pp.length===0 && (
                         <p style={{ fontSize:"12px", color:"#aaa", marginBottom:"12px" }}>No programs assigned yet.</p>
                       )}
 
-                      {/* Program cards */}
-                      {pp.length>0 && (
+                      {!ppLoading && pp.length>0 && (
                         <div style={{ display:"flex", flexDirection:"column", gap:"8px", marginBottom:"14px" }}>
-                          {pp.map((item,i)=>(
-                            <div key={i} style={{ ...card({ padding:"14px 18px" }), display:"flex", alignItems:"center", justifyContent:"space-between", gap:"14px" }}>
-                              <div>
-                                <div style={{ fontSize:"14px", fontWeight:"700", color:"#222" }}>{item.program.name}</div>
-                                <div style={{ fontSize:"11px", color:"#aaa", marginTop:"4px" }}>
-                                  {item.program.exercises.length} exercise{item.program.exercises.length!==1?"s":""} · Start {item.assignment.startDate} · {item.assignment.freq==="specific"?item.assignment.days.join(", "):item.assignment.freq}
+                          {pp.map((item)=>{
+                            const sessionsArr = item.sessions && item.sessions.length ? item.sessions : [{ exercises:item.exercises||[] }];
+                            const exCount = sessionsArr.reduce((sum,s)=>sum+(s.exercises?.length||0),0);
+                            return (
+                              <div key={item._id} style={{ ...card({ padding:"14px 18px" }), display:"flex", alignItems:"center", justifyContent:"space-between", gap:"14px" }}>
+                                <div>
+                                  <div style={{ fontSize:"14px", fontWeight:"700", color:"#222" }}>{item.name}</div>
+                                  <div style={{ fontSize:"11px", color:"#aaa", marginTop:"4px" }}>
+                                    {sessionsArr.length} session{sessionsArr.length!==1?"s":""} · {exCount} exercise{exCount!==1?"s":""} · Start {item.assignment?.startDate} · {item.assignment?.freq==="specific"?item.assignment.days.join(", "):item.assignment?.freq}
+                                  </div>
+                                </div>
+                                <div style={{ display:"flex", alignItems:"center", gap:"8px", flexShrink:0 }}>
+                                  <button onClick={()=>setViewing({player,program:item,assignment:item.assignment})}
+                                    style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", fontWeight:"700", color:"#2e7d32", backgroundColor:"#f0faf0", border:"1px solid #b8e6b8", padding:"7px 14px", borderRadius:"7px", cursor:"pointer", transition:"background 0.15s" }}
+                                    onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#e8f5e9")}
+                                    onMouseLeave={e=>(e.currentTarget.style.backgroundColor="#f0faf0")}
+                                  ><CheckCircle2 size={12}/> View Report</button>
+                                  <button onClick={(e)=>openEdit(player,item,e)}
+                                    style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", fontWeight:"700", color:"#2f9be0", backgroundColor:"#e8f3fb", border:"1px solid #cfe6f7", padding:"7px 14px", borderRadius:"7px", cursor:"pointer", transition:"background 0.15s" }}
+                                    onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#d8ecfa")}
+                                    onMouseLeave={e=>(e.currentTarget.style.backgroundColor="#e8f3fb")}
+                                  ><Edit2 size={12}/> Edit</button>
+                                  <button onClick={()=>handleDeleteProgram(player.id, item._id)}
+                                    style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", fontWeight:"700", color:"#cc3333", backgroundColor:"#fff0f0", border:"1px solid #ffc5c5", padding:"7px 14px", borderRadius:"7px", cursor:"pointer", transition:"background 0.15s" }}
+                                    onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#ffe0e0")}
+                                    onMouseLeave={e=>(e.currentTarget.style.backgroundColor="#fff0f0")}
+                                  ><Trash2 size={12}/> Delete</button>
                                 </div>
                               </div>
-                              <button onClick={()=>setViewing({player,program:item.program,assignment:item.assignment})}
-                                style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", fontWeight:"700", color:"#2e7d32", backgroundColor:"#f0faf0", border:"1px solid #b8e6b8", padding:"7px 14px", borderRadius:"7px", cursor:"pointer", flexShrink:0, transition:"background 0.15s" }}
-                                onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#e8f5e9")}
-                                onMouseLeave={e=>(e.currentTarget.style.backgroundColor="#f0faf0")}
-                              >
-                                <CheckCircle2 size={12}/> View Report
-                              </button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
 
-                      {/* Create button */}
                       <button onClick={e=>openCreate(player,e)}
                         style={{ display:"inline-flex", alignItems:"center", gap:"6px", backgroundColor:"#2f9be0", color:"#fff", fontSize:"13px", fontWeight:"700", padding:"9px 18px", borderRadius:"8px", border:"none", cursor:"pointer", boxShadow:"0 2px 8px rgba(47, 155, 224,0.25)" }}
                         onMouseEnter={e=>(e.currentTarget.style.backgroundColor="#2380c2")}
@@ -873,7 +1031,16 @@ export default function RehabProgram({ players: propPlayers }) {
       </div>
 
       {creating&&activePlayer&&(
-        <CreateProgramModal player={activePlayer} onClose={()=>setCreating(false)} onCreated={handleCreated} exercises={exercises} loading={loading} error={error}/>
+        <CreateProgramModal
+          player={activePlayer}
+          onClose={()=>{ setCreating(false); setEditingProgram(null); }}
+          onCreated={handleCreated}
+          exercises={exercises}
+          loading={loading}
+          error={error}
+          existingProgram={editingProgram}
+          submitting={submitting}
+        />
       )}
     </div>
   );
